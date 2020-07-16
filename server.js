@@ -1,22 +1,31 @@
 const http = require("http");
 const os = require("os");
+
 const { MetricRegistry } = require("inspector-metrics");
 
 const registry = new MetricRegistry();
 const callCount = registry.newMeter("callCount");
+const port = process.env.PORT || 8080;
 
 function htmlEntities(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function renderFlatObject(obj) {
-  return Object.keys(obj)
+function renderFlatObject(obj, filterKeyCallback) {
+  return `<dl class="row">` + Object.keys(obj)
+    .filter( key => {
+      return typeof filterKeyCallback === "function" ? filterKeyCallback(key) : true
+    })
     .map((key) => {
       const value = obj[key];
-      return `<b>${key}</b>: ${htmlEntities(value)}`;
+      return `
+          <dt class="col-sm-3">${key}</dt>
+          <dd class="col-sm-9">${htmlEntities(value)}</dd>
+        `;
     })
     .sort()
-    .join("<br />");
+    .join("")
+    + `</dl>`;
 }
 
 http
@@ -25,10 +34,12 @@ http
     const [load_01, load_05, load_15] = os.loadavg();
     res.write(`<html>
       <head>
-        <title>Container tester</title>
+        <title>Contester</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
       </head>
       <body>
-        <h1>Container tester @ ${os.hostname()}</h1>
+        <div class="container">
+        <h1>Contester say "${process.env.CONTESTER_MESSAGE || "hello world"}" <small class="text-muted">from host ${os.hostname()}</small></h1>
         <h2>Request info</h2>
         ${renderFlatObject({
           // host: req.host,
@@ -49,7 +60,6 @@ http
           systemUptime: os.uptime() + " s",
           memoryTotal: (os.totalmem() / (1024 * 1024)).toFixed(0) + " mb",
           memoryFree: (os.freemem() / (1024 * 1024)).toFixed(0) + " mb",
-          // memoryFree: (os.() / (1024 * 1024)).toFixed(0) + " mb",
         })}
         <h2>Metrics</h2>
         ${renderFlatObject({
@@ -61,14 +71,18 @@ http
           mean: callCount.getMeanRate().toFixed(2) + " req/s",
         })}
         <h2>Environment variables</h2>
-        ${renderFlatObject(process.env)}
+        ${renderFlatObject(process.env, (key) => {
+          const reNodeEnv = /(npm_|nvm_|yarn_).*/gmi;
+          return !reNodeEnv.test(key);
+        })}
         <h2>Headers</h2>
         ${renderFlatObject(req.headers)}
+        </div>
       </body>
     </html>`);
     console.log(new Date().toISOString(), req.method, req.url);
     res.end();
   })
-  .listen(process.env.PORT || 8080, () => {
-    console.log("Container tester started");
+  .listen(port, () => {
+    console.log(`Contester server started, port=${port}`);
   });

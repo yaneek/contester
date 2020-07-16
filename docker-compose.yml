@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  contester:
+    image: contester:latest
+    build:
+      context: "."    
+    ports:
+      - 8080:8080

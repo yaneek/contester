@@ -1,0 +1,20 @@
+{
+  "name": "contester",
+  "author": {
+    "name": "Grzegorz Marchwinski"
+  },
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Container image tester - http server with diagnostics and metrics",
+  "keywords": ["container", "image", "tester", "hello world", "docker", "http"],
+  "dependencies": {
+    "inspector-metrics": "^1.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  },
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js"
+  }
+}

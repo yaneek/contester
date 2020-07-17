@@ -2,26 +2,29 @@
 
 Container image tester - http server with diagnostics and metrics
 
-## Build image
+## Quick start
 
-`docker-compose build`
+Usage: `docker run -d -p 8080:8080 yankeepl/contester:latest`
 
-## Configuration
+Check output: `curl http://localhost:8080`
+
+## Configuration environment variables
 
 * `$PORT` - server port - default 8080
 * `$CONTESTER_MESSAGE` - custom message - default "hello world"
 
-## Start contester container
+## Build your own image
 
-`docker-compose up -d`
+```
+docker-compose build
+docker-compose up -d
+```
 
 http server: http://localhost:8080
 
-
-
 ## Example output:
 ```
-Contester say "some other message" from host 1853a0ecdb67
+Contester says "some other message" from host 1853a0ecdb67
 
 Request info
 localAddress  ::ffff:192.168.96.2

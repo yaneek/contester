@@ -1,6 +1,8 @@
 const http = require("http");
 const os = require("os");
 
+const accepts = require("accepts");
+const htmlToText = require("html-to-text");
 const { MetricRegistry } = require("inspector-metrics");
 
 const registry = new MetricRegistry();
@@ -99,8 +101,25 @@ function getHtml(req) {
 http
   .createServer((req, res) => {
     callCount.mark(1);
+    const accept = accepts(req);
     const content = getHtml(req);
-    res.write(content);
+    switch (accept.type(["text", "html"])) {
+      case "html":
+        res.write(content);
+        break;
+      case "text":
+      default:
+        res.write(
+          htmlToText.fromString(content, {
+            wordwrap: 120,
+            longWordSplit: {
+              wrapCharacters: [" ", "/", "\n", "\t"],
+            },
+            tables: [".table"],
+          })
+        );
+        break;
+    }
     console.log(new Date().toISOString(), req.method, req.url);
     res.end();
   })

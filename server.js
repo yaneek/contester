@@ -8,6 +8,27 @@ const { MetricRegistry } = require("inspector-metrics");
 const registry = new MetricRegistry();
 const callCount = registry.newMeter("callCount");
 const port = process.env.PORT || 8080;
+const contesterMessage = process.env.CONTESTER_MESSAGE || "hello world";
+
+const dockerLegacyLinks = {};
+const kubernetesServices = {};
+Object.keys(process.env).forEach((key) => {
+  const reDockerLink = /([A-Z_]+)_PORT_[0-9]+_(TCP|UDP)(_ADDR|_PORT|_PROTO)?/;
+  const foundDockerLink = key.match(reDockerLink);
+  if (foundDockerLink) {
+    const serviceName = foundDockerLink[1];
+    dockerLegacyLinks[serviceName] = process.env[serviceName + "_PORT"];
+  }
+
+  const reKubernetesService = /([A-Z_]+)_SERVICE_(HOST|PORT)(_HTTP|_HTTPS)?/;
+  const foundKubernetesService = key.match(reKubernetesService);
+  if (foundKubernetesService) {
+    const serviceName = foundKubernetesService[1];
+    kubernetesServices[serviceName] = `${
+      process.env[serviceName + "_SERVICE_HOST"]
+    }:${process.env[serviceName + "_SERVICE_PORT"]}`;
+  }
+});
 
 function htmlEntities(str) {
   return String(str)
@@ -17,7 +38,7 @@ function htmlEntities(str) {
     .replace(/"/g, "&quot;");
 }
 
-function renderFlatObject(caption, obj, filterKeyCallback) {
+function renderKeyValueTable(caption, obj, filterKeyCallback) {
   const keys = Object.keys(obj).filter((key) => {
     return typeof filterKeyCallback === "function"
       ? filterKeyCallback(key)
@@ -36,28 +57,51 @@ function renderFlatObject(caption, obj, filterKeyCallback) {
       .join("")}</table>`;
 }
 
-function getHtml(req) {
-  const dockerLegacyLinks = {};
-  const kubernetesServices = {};
-  Object.keys(process.env).forEach((key) => {
-    const reDockerLink = /([A-Z_]+)_PORT_[0-9]+_(TCP|UDP)(_ADDR|_PORT|_PROTO)?/;
-    const foundDockerLink = key.match(reDockerLink);
-    if (foundDockerLink) {
-      const serviceName = foundDockerLink[1];
-      dockerLegacyLinks[serviceName] = process.env[serviceName + "_PORT"];
-    }
+function getRequestInfo(req) {
+  return {
+    request: `${req.method} ${req.url}`,
+    remoteAddress: req.connection.remoteAddress,
+    localAddress: req.connection.localAddress,
+    localPort: req.connection.localPort,
+    timestamp: new Date().toISOString(),
+  }
+}
 
-    const reKubernetesService = /([A-Z_]+)_SERVICE_(HOST|PORT)(_HTTP|_HTTPS)?/;
-    const foundKubernetesService = key.match(reKubernetesService);
-    if (foundKubernetesService) {
-      const serviceName = foundKubernetesService[1];
-      kubernetesServices[serviceName] = `${
-        process.env[serviceName + "_SERVICE_HOST"]
-      }:${process.env[serviceName + "_SERVICE_PORT"]}`;
-    }
-  });
-
+function getSystemInfo() {
   const [load_01, load_05, load_15] = os.loadavg();
+  return {
+    hostname: os.hostname(),
+    load_01,
+    load_05,
+    load_15,
+    platform: os.platform() + ", " + os.release() + ", " + os.arch(),
+    systemUptime: os.uptime() + " s",
+    memoryTotal: (os.totalmem() / (1024 * 1024)).toFixed(0) + " mb",
+    memoryFree: (os.freemem() / (1024 * 1024)).toFixed(0) + " mb",
+  }
+}
+
+function getMetrics() {
+  return {
+    count: callCount.getCount(),
+    uptime:
+      (
+        (new Date().getTime() - callCount.startTime.milliseconds) /
+        1000
+      ).toFixed(2) + " s",
+    rate_01: callCount.get1MinuteRate().toFixed(2) + " req/s",
+    rate_05: callCount.get5MinuteRate().toFixed(2) + " req/s",
+    rate_15: callCount.get15MinuteRate().toFixed(2) + " req/s",
+    mean: callCount.getMeanRate().toFixed(2) + " req/s",
+  }
+}
+
+function filterImportantEnvVariables(key) {
+  const reNodeEnv = /(npm_|nvm_|yarn_).*/i;
+  return !reNodeEnv.test(key);
+}
+
+function getHtml(req) {
   return `<html>
     <head>
       <title>Contester ${req.url}</title>
@@ -65,82 +109,52 @@ function getHtml(req) {
     </head>
     <body>
       <div class="container">
-      <h1>Contester says "${
-        process.env.CONTESTER_MESSAGE || "hello world"
-      }"<br><small class="text-muted">from host ${os.hostname()}</small></h1>
-      ${renderFlatObject("Docker legacy links", dockerLegacyLinks)}      
-      ${renderFlatObject("Kubernetes services", kubernetesServices)}      
-      ${renderFlatObject("Request info", {
-        // host: req.host,
-        // protocol: req.protocol,
-        request: `${req.method} ${req.url}`,
-        remoteAddress: req.connection.remoteAddress,
-        localAddress: req.connection.localAddress,
-        localPort: req.connection.localPort,
-        timestamp: new Date().toISOString(),
-      })}   
-      ${renderFlatObject("System info", {
-        hostname: os.hostname(),
-        load_01,
-        load_05,
-        load_15,
-        platform: os.platform() + ", " + os.release() + ", " + os.arch(),
-        systemUptime: os.uptime() + " s",
-        memoryTotal: (os.totalmem() / (1024 * 1024)).toFixed(0) + " mb",
-        memoryFree: (os.freemem() / (1024 * 1024)).toFixed(0) + " mb",
-      })}
-      ${renderFlatObject("Metrics", {
-        count: callCount.getCount(),
-        uptime:
-          (
-            (new Date().getTime() - callCount.startTime.milliseconds) /
-            1000
-          ).toFixed(2) + " s",
-        rate_01: callCount.get1MinuteRate().toFixed(2) + " req/s",
-        rate_05: callCount.get5MinuteRate().toFixed(2) + " req/s",
-        rate_15: callCount.get15MinuteRate().toFixed(2) + " req/s",
-        mean: callCount.getMeanRate().toFixed(2) + " req/s",
-      })}
-      ${renderFlatObject("Environment variables", process.env, (key) => {
-        const reNodeEnv = /(npm_|nvm_|yarn_).*/gim;
-        return !reNodeEnv.test(key);
-      })}
-      ${renderFlatObject("Headers", req.headers)}
+        <h1>Contester says "${contesterMessage}"<br>
+        <small class="text-muted">from host ${os.hostname()}</small></h1>
+        ${renderKeyValueTable("Docker legacy links", dockerLegacyLinks)}      
+        ${renderKeyValueTable("Kubernetes services", kubernetesServices)}      
+        ${renderKeyValueTable("Request info", getRequestInfo(req))}   
+        ${renderKeyValueTable("System info", getSystemInfo())}
+        ${renderKeyValueTable("Metrics", getMetrics())}
+        ${renderKeyValueTable("Environment variables", process.env, filterImportantEnvVariables )}
+        ${renderKeyValueTable("Headers", req.headers)}
       </div>
     </body>
   </html>`;
+}
+
+function getTextFromHtml(content) {
+  return htmlToText
+  .fromString(content, {
+    wordwrap: 120,
+    longWordSplit: {
+      wrapCharacters: [" ", "/", "\n", "\t"],
+    },
+    tables: [".table"],
+    format: {
+      heading: function (elem, fn, options) {
+        var h = fn(elem.children, options);
+        return (
+          "\n--- [ " + h.toUpperCase().replace("\n", " ") + " ] ---\n"
+        );
+      },
+    },
+  })
+  .trim()
 }
 
 http
   .createServer((req, res) => {
     callCount.mark(1);
     const accept = accepts(req);
-    const content = getHtml(req);
+    const html = getHtml(req);
     switch (accept.type(["text", "html"])) {
       case "html":
-        res.write(content);
+        res.write(html);
         break;
       case "text":
       default:
-        res.write(
-          htmlToText
-            .fromString(content, {
-              wordwrap: 120,
-              longWordSplit: {
-                wrapCharacters: [" ", "/", "\n", "\t"],
-              },
-              tables: [".table"],
-              format: {
-                heading: function (elem, fn, options) {
-                  var h = fn(elem.children, options);
-                  return (
-                    "\n--- [ " + h.toUpperCase().replace("\n", " ") + " ] ---\n"
-                  );
-                },
-              },
-            })
-            .trim()
-        );
+        res.write(getTextFromHtml(html));
         break;
     }
     console.log(new Date().toISOString(), req.method, req.url);

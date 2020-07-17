@@ -58,3 +58,11 @@ HOSTNAME            1853a0ecdb67
 INIT_CWD            /usr/src/app
 ...
 ```
+
+## Server development
+
+Nodejs pure http server (no express, hapi, etc). Start server with file watcher:
+```
+yarn install
+yarn dev
+```

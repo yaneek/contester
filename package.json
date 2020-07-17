@@ -3,7 +3,7 @@
   "author": {
     "name": "Grzegorz Marchwinski"
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "description": "Container image tester - http server with diagnostics and metrics",
   "keywords": ["container", "image", "tester", "hello world", "docker", "http"],

@@ -12,20 +12,22 @@ function htmlEntities(str) {
 }
 
 function renderFlatObject(obj, filterKeyCallback) {
-  return `<dl class="row">` + Object.keys(obj)
+  return `<table class="table">
+    ` + Object.keys(obj)
     .filter( key => {
       return typeof filterKeyCallback === "function" ? filterKeyCallback(key) : true
     })
     .map((key) => {
       const value = obj[key];
       return `
-          <dt class="col-sm-3">${key}</dt>
-          <dd class="col-sm-9">${htmlEntities(value)}</dd>
-        `;
+        <tr>
+          <td style="width: 200px; font-weight: bold;">${key}</td>
+          <td>${htmlEntities(value)}</td>
+        </tr>`;
     })
     .sort()
     .join("")
-    + `</dl>`;
+    + `</table>`;
 }
 
 http
@@ -34,12 +36,12 @@ http
     const [load_01, load_05, load_15] = os.loadavg();
     res.write(`<html>
       <head>
-        <title>Contester</title>
+        <title>Contester ${req.url}</title>
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
       </head>
       <body>
         <div class="container">
-        <h1>Contester say "${process.env.CONTESTER_MESSAGE || "hello world"}" <small class="text-muted">from host ${os.hostname()}</small></h1>
+        <h1>Contester says "${process.env.CONTESTER_MESSAGE || "hello world"}"<br><small class="text-muted">from host ${os.hostname()}</small></h1>
         <h2>Request info</h2>
         ${renderFlatObject({
           // host: req.host,

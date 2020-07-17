@@ -17,30 +17,46 @@ function htmlEntities(str) {
     .replace(/"/g, "&quot;");
 }
 
-function renderFlatObject(obj, filterKeyCallback) {
-  return (
-    `<table class="table">` +
-    Object.keys(obj)
-      .filter((key) => {
-        return typeof filterKeyCallback === "function"
-          ? filterKeyCallback(key)
-          : true;
-      })
+function renderFlatObject(caption, obj, filterKeyCallback) {
+  const keys = Object.keys(obj).filter((key) => {
+    return typeof filterKeyCallback === "function"
+      ? filterKeyCallback(key)
+      : true;
+  });
+  if (!keys.length) return "";
+  return `<h2>${caption}</h2>
+    <table class="table">${keys
       .map((key) => {
-        const value = obj[key];
-        return `
-        <tr>
+        return `<tr>
           <td style="width: 200px; font-weight: bold;">${key}</td>
-          <td>${htmlEntities(value)}</td>
+          <td>${htmlEntities(obj[key])}</td>
         </tr>`;
       })
       .sort()
-      .join("") +
-    `</table>`
-  );
+      .join("")}</table>`;
 }
 
 function getHtml(req) {
+  const dockerLegacyLinks = {};
+  const kubernetesServices = {};
+  Object.keys(process.env).forEach((key) => {
+    const reDockerLink = /([A-Z_]+)_PORT_[0-9]+_(TCP|UDP)(_ADDR|_PORT|_PROTO)?/;
+    const foundDockerLink = key.match(reDockerLink);
+    if (foundDockerLink) {
+      const serviceName = foundDockerLink[1];
+      dockerLegacyLinks[serviceName] = process.env[serviceName + "_PORT"];
+    }
+
+    const reKubernetesService = /([A-Z_]+)_SERVICE_(HOST|PORT)(_HTTP|_HTTPS)?/;
+    const foundKubernetesService = key.match(reKubernetesService);
+    if (foundKubernetesService) {
+      const serviceName = foundKubernetesService[1];
+      kubernetesServices[serviceName] = `${
+        process.env[serviceName + "_SERVICE_HOST"]
+      }:${process.env[serviceName + "_SERVICE_PORT"]}`;
+    }
+  });
+
   const [load_01, load_05, load_15] = os.loadavg();
   return `<html>
     <head>
@@ -52,8 +68,9 @@ function getHtml(req) {
       <h1>Contester says "${
         process.env.CONTESTER_MESSAGE || "hello world"
       }"<br><small class="text-muted">from host ${os.hostname()}</small></h1>
-      <h2>Request info</h2>
-      ${renderFlatObject({
+      ${renderFlatObject("Docker legacy links", dockerLegacyLinks)}      
+      ${renderFlatObject("Kubernetes services", kubernetesServices)}      
+      ${renderFlatObject("Request info", {
         // host: req.host,
         // protocol: req.protocol,
         request: `${req.method} ${req.url}`,
@@ -61,9 +78,8 @@ function getHtml(req) {
         localAddress: req.connection.localAddress,
         localPort: req.connection.localPort,
         timestamp: new Date().toISOString(),
-      })}
-      <h2>System info</h2>
-      ${renderFlatObject({
+      })}   
+      ${renderFlatObject("System info", {
         hostname: os.hostname(),
         load_01,
         load_05,
@@ -73,8 +89,7 @@ function getHtml(req) {
         memoryTotal: (os.totalmem() / (1024 * 1024)).toFixed(0) + " mb",
         memoryFree: (os.freemem() / (1024 * 1024)).toFixed(0) + " mb",
       })}
-      <h2>Metrics</h2>
-      ${renderFlatObject({
+      ${renderFlatObject("Metrics", {
         count: callCount.getCount(),
         uptime:
           (
@@ -86,13 +101,11 @@ function getHtml(req) {
         rate_15: callCount.get15MinuteRate().toFixed(2) + " req/s",
         mean: callCount.getMeanRate().toFixed(2) + " req/s",
       })}
-      <h2>Environment variables</h2>
-      ${renderFlatObject(process.env, (key) => {
+      ${renderFlatObject("Environment variables", process.env, (key) => {
         const reNodeEnv = /(npm_|nvm_|yarn_).*/gim;
         return !reNodeEnv.test(key);
       })}
-      <h2>Headers</h2>
-      ${renderFlatObject(req.headers)}
+      ${renderFlatObject("Headers", req.headers)}
       </div>
     </body>
   </html>`;
@@ -110,19 +123,23 @@ http
       case "text":
       default:
         res.write(
-          htmlToText.fromString(content, {
-            wordwrap: 120,
-            longWordSplit: {
-              wrapCharacters: [" ", "/", "\n", "\t"],
-            },
-            tables: [".table"],
-            format: {
-              heading: function (elem, fn, options) {
-                var h = fn(elem.children, options);
-                return "---=[ " + h.toUpperCase().replace("\n", " ") + " ]=---\n\n";
+          htmlToText
+            .fromString(content, {
+              wordwrap: 120,
+              longWordSplit: {
+                wrapCharacters: [" ", "/", "\n", "\t"],
               },
-            },
-          })
+              tables: [".table"],
+              format: {
+                heading: function (elem, fn, options) {
+                  var h = fn(elem.children, options);
+                  return (
+                    "\n--- [ " + h.toUpperCase().replace("\n", " ") + " ] ---\n"
+                  );
+                },
+              },
+            })
+            .trim()
         );
         break;
     }

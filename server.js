@@ -116,6 +116,12 @@ http
               wrapCharacters: [" ", "/", "\n", "\t"],
             },
             tables: [".table"],
+            format: {
+              heading: function (elem, fn, options) {
+                var h = fn(elem.children, options);
+                return "---=[ " + h.toUpperCase().replace("\n", " ") + " ]=---\n\n";
+              },
+            },
           })
         );
         break;

@@ -17,6 +17,7 @@
   },
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "watch": "watch curl -s http://localhost:8080"
   }
 }

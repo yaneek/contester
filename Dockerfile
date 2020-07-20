@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 COPY package.json server.js yarn.lock ./
 RUN yarn install --production && yarn cache clean
 # ------------------------------------------------------
-FROM node:10.20-alpine
+FROM mhart/alpine-node:slim-10
 ENV PORT 8080
 EXPOSE $PORT
 ENV NODE_ENV production
@@ -19,6 +19,6 @@ USER contest
 
 WORKDIR /usr/src/app
 
-COPY --from=builder /usr/src/app . 
+COPY --from=builder /usr/src/app .
 
-CMD [ "yarn", "start" ]
+CMD [ "node", "server.js" ]

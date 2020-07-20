@@ -4,8 +4,8 @@ services:
   contester:
     image: contester:latest
     build:
-      context: "."    
+      context: "."
     ports:
       - 8080:8080
-    environment: 
+    environment:
       CONTESTER_MESSAGE: "some other message"

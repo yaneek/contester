@@ -1,6 +1,6 @@
 # Contester - hello world container
 
-Container image tester - http server with diagnostics and metrics
+Container test image - simple http server with diagnostics and metrics
 
 ## Quick start
 
@@ -10,8 +10,8 @@ Check output: `curl http://localhost:8080`
 
 ## Configuration environment variables
 
-* `$PORT` - server port - default 8080
-* `$CONTESTER_MESSAGE` - custom message - default "hello world"
+* `PORT` - server port - default 8080
+* `CONTESTER_MESSAGE` - custom message - default "hello world"
 
 ## Build your own image
 

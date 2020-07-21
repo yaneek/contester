@@ -60,9 +60,14 @@ function renderKeyValueTable(caption, obj, filterKeyCallback) {
 }
 
 function getRequestInfo(req) {
+  const remoteAddressBehindProxy = (req.headers['x-forwarded-for'] || '').split(',').pop().trim() ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    req.connection.socket.remoteAddress;
   return {
     request: `${req.method} ${req.url}`,
     remoteAddress: req.connection.remoteAddress,
+    remoteAddressBehindProxy,
     localAddress: req.connection.localAddress,
     localPort: req.connection.localPort,
     timestamp: new Date().toISOString(),
@@ -111,11 +116,11 @@ function getHtml(req) {
     </head>
     <body>
       <div class="container">
-        <h1>Contester ${packageJson.version}</h1>        
+        <h1>Contester ${packageJson.version}</h1>
         <p class="text-muted">Host ${os.hostname()} said "${contesterMessage}"</p>
-        ${renderKeyValueTable("Docker legacy links", dockerLegacyLinks)}      
-        ${renderKeyValueTable("Kubernetes services", kubernetesServices)}      
-        ${renderKeyValueTable("Request info", getRequestInfo(req))}   
+        ${renderKeyValueTable("Docker legacy links", dockerLegacyLinks)}
+        ${renderKeyValueTable("Kubernetes services", kubernetesServices)}
+        ${renderKeyValueTable("Request info", getRequestInfo(req))}
         ${renderKeyValueTable("System info", getSystemInfo())}
         ${renderKeyValueTable("Metrics", getMetrics())}
         ${renderKeyValueTable("Environment variables", process.env, filterImportantEnvVariables )}

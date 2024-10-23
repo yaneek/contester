@@ -131,8 +131,7 @@ function getHtml(req) {
 }
 
 function getTextFromHtml(content) {
-  return htmlToText
-  .fromString(content, {
+  return htmlToText.htmlToText(content, {
     wordwrap: 120,
     longWordSplit: {
       wrapCharacters: [" ", "/", "\n", "\t"],
@@ -153,6 +152,13 @@ function getTextFromHtml(content) {
 http
   .createServer((req, res) => {
     callCount.mark(1);
+    console.log(new Date().toISOString(), req.method, req.url);
+    if (req.url !== "/") {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/plain');
+      res.end('404 Not Found');
+      return; //--->>>
+    }
     const accept = accepts(req);
     const html = getHtml(req);
     switch (accept.type(["text", "html"])) {
@@ -164,7 +170,6 @@ http
         res.write(getTextFromHtml(html));
         break;
     }
-    console.log(new Date().toISOString(), req.method, req.url);
     res.end();
   })
   .listen(port, () => {

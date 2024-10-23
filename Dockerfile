@@ -1,21 +1,21 @@
-FROM node:10.20-alpine as builder
+FROM node:20.17-alpine as builder
 # add build tools (node-gyp related)
-RUN apk add --no-cache make gcc g++ python
+RUN apk add --no-cache make gcc g++ python3
 
 ENV NODE_ENV production
 
 WORKDIR /usr/src/app
-
-COPY package.json server.js yarn.lock ./
+COPY package.json yarn.lock ./
 RUN yarn install --production && yarn cache clean
+
+COPY server.js  ./
 # ------------------------------------------------------
-FROM mhart/alpine-node:slim-10
+FROM node:20.17-alpine
 ENV PORT 8080
 EXPOSE $PORT
 ENV NODE_ENV production
 
-RUN adduser -D contest
-USER contest
+USER node
 
 WORKDIR /usr/src/app
 
